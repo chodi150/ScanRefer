@@ -1,0 +1,12 @@
+from setuptools import setup, find_packages
+from os import path
+
+
+setup(
+    name='pointgroup',  # Required
+    version='0.0.1',  # Required
+    description='pointgroup',  # Required
+    packages=find_packages(),  # Required
+   # install_requires=required,
+   # dependency_links=dependency_links,
+)
