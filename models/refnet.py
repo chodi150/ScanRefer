@@ -11,7 +11,7 @@ from models.ref_module import RefModule
 
 
 class RefNet(nn.Module):
-    def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, input_feature_dim=0, num_proposal=128, vote_factor=1, sampling="vote_fps", use_lang_classifier=True):
+    def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, input_feature_dim=0, num_proposal=128, vote_factor=1, sampling="vote_fps", use_lang_classifier=True, use_ground_true_bboxes = False):
         super().__init__()
 
         self.num_class = num_class
@@ -24,7 +24,7 @@ class RefNet(nn.Module):
         self.vote_factor = vote_factor
         self.sampling=sampling
         self.use_lang_classifier=use_lang_classifier
-
+        self.use_ground_true_bboxes = use_ground_true_bboxes
         # Backbone point feature learning
         self.backbone_net = Pointnet2Backbone(input_feature_dim=self.input_feature_dim)
 
@@ -32,7 +32,7 @@ class RefNet(nn.Module):
         self.vgen = VotingModule(self.vote_factor, 256)
 
         # Vote aggregation, detection and language reference
-        self.rfnet = RefModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling, use_lang_classifier)
+        self.rfnet = RefModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling, use_lang_classifier, use_ground_true_bboxes)
 
     def forward(self, data_dict):
         """ Forward pass of the network

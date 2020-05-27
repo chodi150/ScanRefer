@@ -43,8 +43,64 @@ def decode_scores(net, data_dict, num_class, num_heading_bin, num_size_cluster, 
     data_dict['sem_cls_scores'] = sem_cls_scores
     return data_dict
 
+
+def decode_scores_set_ground_truth_bbox(net, data_dict, num_class, num_heading_bin, num_size_cluster, mean_size_arr):
+    net_transposed = net.transpose(2,1).contiguous() # (batch_size, 1024, ..)
+    batch_size = net_transposed.shape[0]
+    num_proposal = net_transposed.shape[1]
+
+    FAR_THRESHOLD = 0.6
+    NEAR_THRESHOLD = 0.3
+    GT_VOTE_FACTOR = 3  # number of GT votes per point
+    base_xyz = data_dict['aggregated_vote_xyz']
+    gt_center = data_dict['center_label'][:,:,0:3]
+    B = gt_center.shape[0]
+    K = base_xyz.shape[1]
+    K2 = gt_center.shape[1]
+    dist1, ind1, dist2, _ = nn_distance(base_xyz,data_dict['center_label'][:,:,0:3])
+
+    # Generate objectness label and mask
+    # objectness_label: 1 if pred object center is within NEAR_THRESHOLD of any GT object
+    # objectness_mask: 0 if pred object center is in gray zone (DONOTCARE), 1 otherwise
+    euclidean_dist1 = torch.sqrt(dist1 + 1e-6)
+    objectness_label = torch.zeros((B,K), dtype=torch.long).cuda()
+    objectness_mask = torch.zeros((B,K)).cuda()
+    objectness_label[euclidean_dist1<NEAR_THRESHOLD] = 1
+    objectness_mask[euclidean_dist1<NEAR_THRESHOLD] = 1
+    objectness_mask[euclidean_dist1>FAR_THRESHOLD] = 1
+    objectness_scores = net_transposed[:,:,0:2]
+
+    data_dict['objectness_scores'] = objectness_scores
+
+     # (batch_size, num_proposal, 3)
+    data_dict['center'] = data_dict['center_label'][:,:,0:3]
+    object_assignment = data_dict['object_assignment']
+    heading_residual_label = torch.gather(data_dict['heading_residual_label'], 1, object_assignment) # select (B,K) from (B,K2)
+    heading_residual_normalized_label = heading_residual_label / (np.pi / num_heading_bin)
+
+    data_dict['heading_scores'] = heading_residual_label
+    data_dict['heading_residuals_normalized'] =heading_residual_normalized_label
+    data_dict['heading_residuals'] = heading_residual_normalized_label * (np.pi/num_heading_bin) # Bxnum_proposalxnum_heading_bin
+
+    size_class_label = torch.gather(data_dict['size_class_label'], 1, object_assignment)  # select (B,K) from (B,K2)
+    size_residual_label = torch.gather(data_dict['size_residual_label'], 1, object_assignment.unsqueeze(-1).repeat(1, 1, 3))
+    mean_size_arr_expanded = torch.from_numpy(mean_size_arr.astype(np.float32)).cuda().unsqueeze(0).unsqueeze(0) # (1,1,num_size_cluster,3)
+    size_label_one_hot = torch.cuda.FloatTensor(batch_size, size_class_label.shape[1], num_size_cluster).zero_()
+    size_label_one_hot.scatter_(2, size_class_label.unsqueeze(-1), 1) # src==1 so it's *one-hot* (B,K,num_size_cluster)
+    size_label_one_hot_tiled = size_label_one_hot.unsqueeze(-1).repeat(1,1,1,3) # (B,K,num_size_cluster,3)
+    mean_size_label = torch.sum(size_label_one_hot_tiled * mean_size_arr_expanded, 2) # (B,K,3)
+    size_residual_label_normalized = size_residual_label / mean_size_label # (B,K,3)
+
+    data_dict['size_scores'] = size_class_label
+    data_dict['size_residuals_normalized'] = size_residual_label_normalized
+    data_dict['size_residuals'] = size_residual_label_normalized
+
+    sem_cls_label = torch.gather(data_dict['sem_cls_label'], 1, object_assignment)
+    data_dict['sem_cls_scores'] = sem_cls_label
+    return data_dict
+
 class RefModule(nn.Module):
-    def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling, use_lang_classifier=True, seed_feat_dim=256):
+    def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling, use_lang_classifier=True, seed_feat_dim=256, use_ground_true_bboxes=False):
         super().__init__() 
 
         self.num_class = num_class
@@ -55,6 +111,7 @@ class RefModule(nn.Module):
         self.sampling = sampling
         self.use_lang_classifier = use_lang_classifier
         self.seed_feat_dim = seed_feat_dim
+        self.use_ground_true_bboxes = use_ground_true_bboxes
 
         # Vote clustering
         self.vote_aggregation = PointnetSAModuleVotes( 
@@ -124,7 +181,11 @@ class RefModule(nn.Module):
         net = F.relu(self.bn2(self.conv2(net))) 
         net = self.conv3(net) # (batch_size, 2+3+num_heading_bin*2+num_size_cluster*4, num_proposal)
 
-        data_dict = decode_scores(net, data_dict, self.num_class, self.num_heading_bin, self.num_size_cluster, self.mean_size_arr)
+        if not self.use_ground_true_bboxes:
+            data_dict = decode_scores(net, data_dict, self.num_class, self.num_heading_bin, self.num_size_cluster, self.mean_size_arr)
+        else:
+            data_dict = decode_scores_set_ground_truth_bbox(net, data_dict, self.num_class, self.num_heading_bin, self.num_size_cluster,self.mean_size_arr)
+
 
         # --------- FEATURE FUSION ---------
         lang_feat = data_dict["lang_feat"]
