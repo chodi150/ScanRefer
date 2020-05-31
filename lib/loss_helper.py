@@ -134,9 +134,9 @@ def compute_box_and_sem_cls_loss(data_dict, config):
     batch_size = object_assignment.shape[0]
 
     # Compute center loss
-    print(f"Shape of predicted centers: {data_dict['center'].shape}")
-    print(f"Shape of original centers: {data_dict['center_label'].shape}")
-    print(f"Shape of original centers cut: {data_dict['center_label'][:,:,0:3].shape}")
+    # print(f"Shape of predicted centers: {data_dict['center'].shape}")
+    # print(f"Shape of original centers: {data_dict['center_label'].shape}")
+    # print(f"Shape of original centers cut: {data_dict['center_label'][:,:,0:3].shape}")
     # data_dict['center']=data_dict['center_label'][:,:,0:3]
     pred_center = data_dict['center']
     gt_center = data_dict['center_label'][:,:,0:3]
@@ -176,7 +176,7 @@ def compute_box_and_sem_cls_loss(data_dict, config):
     size_label_one_hot_tiled = size_label_one_hot.unsqueeze(-1).repeat(1,1,1,3) # (B,K,num_size_cluster,3)
     predicted_size_residual_normalized = torch.sum(data_dict['size_residuals_normalized']*size_label_one_hot_tiled, 2) # (B,K,3)
 
-    mean_size_arr_expanded = torch.from_numpy(mean_size_arr.astype(np.float32)).cuda().unsqueeze(0).unsqueeze(0) # (1,1,num_size_cluster,3) 
+    mean_size_arr_expanded = torch.from_numpy(mean_size_arr.astype(np.float32)).cuda().unsqueeze(0).unsqueeze(0) # (1,1,num_size_cluster,3)
     mean_size_label = torch.sum(size_label_one_hot_tiled * mean_size_arr_expanded, 2) # (B,K,3)
     size_residual_label_normalized = size_residual_label / mean_size_label # (B,K,3)
     size_residual_normalized_loss = torch.mean(huber_loss(predicted_size_residual_normalized - size_residual_label_normalized, delta=1.0), -1) # (B,K,3) -> (B,K)
