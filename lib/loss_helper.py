@@ -137,7 +137,7 @@ def compute_box_and_sem_cls_loss(data_dict, config):
     print(f"Shape of predicted centers: {data_dict['center'].shape}")
     print(f"Shape of original centers: {data_dict['center_label'].shape}")
     print(f"Shape of original centers cut: {data_dict['center_label'][:,:,0:3].shape}")
-    data_dict['center']=data_dict['center_label'][:,:,0:3]
+    # data_dict['center']=data_dict['center_label'][:,:,0:3]
     pred_center = data_dict['center']
     gt_center = data_dict['center_label'][:,:,0:3]
     dist1, ind1, dist2, _ = nn_distance(pred_center, gt_center) # dist1: BxK, dist2: BxK2
