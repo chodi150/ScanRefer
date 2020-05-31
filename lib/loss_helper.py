@@ -348,6 +348,7 @@ def get_loss(data_dict, config, reference=False, use_lang_classifier=False, use_
         # compute localization metrics
         pred_ref = torch.argmax(data_dict['cluster_ref'] * data_dict['pred_mask'], 1).detach().cpu().numpy() # (B,)
         pred_center = data_dict['center'].detach().cpu().numpy() # (B,K,3)
+        print(f"PRED CENTER: {pred_center.shape}")
         pred_heading_class = torch.argmax(data_dict['heading_scores'], -1) # B,num_proposal
         pred_heading_residual = torch.gather(data_dict['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
         pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
@@ -359,6 +360,7 @@ def get_loss(data_dict, config, reference=False, use_lang_classifier=False, use_
 
         gt_ref = torch.argmax(data_dict["ref_box_label"], 1).detach().cpu().numpy()
         gt_center = data_dict['center_label'].cpu().numpy() # (B,MAX_NUM_OBJ,3)
+        print(f"GT CENTER: {gt_center.shape}")
         gt_heading_class = data_dict['heading_class_label'].cpu().numpy() # B,K2
         gt_heading_residual = data_dict['heading_residual_label'].cpu().numpy() # B,K2
         gt_size_class = data_dict['size_class_label'].cpu().numpy() # B,K2
