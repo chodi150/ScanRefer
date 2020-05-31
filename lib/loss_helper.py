@@ -377,12 +377,18 @@ def get_loss(data_dict, config, reference=False, use_lang_classifier=False, use_
             pred_ref_idx, gt_ref_idx = pred_ref[i], gt_ref[i]
             pred_obb = config.param2obb(pred_center[i, pred_ref_idx, 0:3], pred_heading_class[i, pred_ref_idx], pred_heading_residual[i, pred_ref_idx],
                             pred_size_class[i, pred_ref_idx], pred_size_residual[i, pred_ref_idx])
-            gt_obb = config.param2obb(gt_center[i, gt_ref_idx, 0:3], gt_heading_class[i, gt_ref_idx], gt_heading_residual[i, gt_ref_idx],
-                            gt_size_class[i, gt_ref_idx], gt_size_residual[i, gt_ref_idx])
+
             pred_bbox = get_3d_box(pred_obb[3:6], pred_obb[6], pred_obb[0:3])
-            gt_bbox = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])
-            iou, _ = box3d_iou(pred_bbox, gt_bbox)
-            ious.append(iou)
+
+            ious_gts = []
+            for j in range(128):
+                gt_obb = config.param2obb(gt_center[i, j, 0:3], gt_heading_class[i, j], gt_heading_residual[i, j],
+                            gt_size_class[i, j], gt_size_residual[i, j])
+                gt_bbox = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])
+                iou, _ = box3d_iou(pred_bbox, gt_bbox)
+                ious_gts.append(iou)
+
+            ious.append(max(ious_gts))
 
             # construct the multiple mask
             num_bbox = data_dict["num_bbox"][i]
