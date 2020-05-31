@@ -381,14 +381,21 @@ def get_loss(data_dict, config, reference=False, use_lang_classifier=False, use_
             pred_bbox = get_3d_box(pred_obb[3:6], pred_obb[6], pred_obb[0:3])
 
             ious_gts = []
+            closest_gt_bbox = None
             for j in range(128):
                 gt_obb = config.param2obb(gt_center[i, j, 0:3], gt_heading_class[i, j], gt_heading_residual[i, j],
                             gt_size_class[i, j], gt_size_residual[i, j])
                 gt_bbox = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])
                 iou, _ = box3d_iou(pred_bbox, gt_bbox)
                 ious_gts.append(iou)
+                if iou == max(ious_gts):
+                    closest_gt_bbox = gt_bbox
 
-            ious.append(max(ious_gts))
+            gt_obb = config.param2obb(gt_center[i, gt_ref_idx, 0:3], gt_heading_class[i, gt_ref_idx],
+                                      gt_heading_residual[i, gt_ref_idx],
+                                      gt_size_class[i, gt_ref_idx], gt_size_residual[i, gt_ref_idx])
+            iou, _ = box3d_iou(closest_gt_bbox, gt_obb)
+            ious.append(iou)
 
             # construct the multiple mask
             num_bbox = data_dict["num_bbox"][i]
