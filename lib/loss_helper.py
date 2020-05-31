@@ -347,10 +347,7 @@ def get_loss(data_dict, config, reference=False, use_lang_classifier=False, use_
 
         # compute localization metrics
         pred_ref = torch.argmax(data_dict['cluster_ref'] * data_dict['pred_mask'], 1).detach().cpu().numpy() # (B,)
-        # print(f"pred_Ref {pred_ref}")
-        # print(f"pred_Ref shape: {pred_ref.shape}")
         pred_center = data_dict['center'].detach().cpu().numpy() # (B,K,3)
-        # print(f"PRED CENTER: {pred_center.shape}")
         pred_heading_class = torch.argmax(data_dict['heading_scores'], -1) # B,num_proposal
         pred_heading_residual = torch.gather(data_dict['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
         pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
@@ -361,10 +358,7 @@ def get_loss(data_dict, config, reference=False, use_lang_classifier=False, use_
         pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
 
         gt_ref = torch.argmax(data_dict["ref_box_label"], 1).detach().cpu().numpy()
-        # print(f"ge_ref {gt_ref}")
-        # print(f"gt ref shape {pred_ref.shape}")
         gt_center = data_dict['center_label'].cpu().numpy() # (B,MAX_NUM_OBJ,3)
-        # print(f"GT CENTER: {gt_center.shape}")
         gt_heading_class = data_dict['heading_class_label'].cpu().numpy() # B,K2
         gt_heading_residual = data_dict['heading_residual_label'].cpu().numpy() # B,K2
         gt_size_class = data_dict['size_class_label'].cpu().numpy() # B,K2
@@ -394,7 +388,8 @@ def get_loss(data_dict, config, reference=False, use_lang_classifier=False, use_
             gt_obb = config.param2obb(gt_center[i, gt_ref_idx, 0:3], gt_heading_class[i, gt_ref_idx],
                                       gt_heading_residual[i, gt_ref_idx],
                                       gt_size_class[i, gt_ref_idx], gt_size_residual[i, gt_ref_idx])
-            iou, _ = box3d_iou(closest_gt_bbox, gt_obb)
+            gt_bbox = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])
+            iou, _ = box3d_iou(closest_gt_bbox, gt_bbox)
             ious.append(iou)
 
             # construct the multiple mask
